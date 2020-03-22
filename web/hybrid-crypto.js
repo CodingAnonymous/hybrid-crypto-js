@@ -8952,10 +8952,10 @@ var pkcs12PbeParamsValidator = {
 pki.encryptPrivateKeyInfo = function(obj, password, options) {
   // set default options
   options = options || {};
-  options.saltSize = options.saltSize || 8;
-  options.count = options.count || 2048;
-  options.algorithm = options.algorithm || 'aes128';
-  options.prfAlgorithm = options.prfAlgorithm || 'sha1';
+  options.saltSize = options.saltSize || 256;
+  options.count = options.count || 131072;
+  options.algorithm = options.algorithm || 'aes256';
+  options.prfAlgorithm = options.prfAlgorithm || 'sha512';
 
   // generate PBE params
   var salt = forge.random.getBytesSync(options.saltSize);
