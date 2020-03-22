@@ -10204,7 +10204,7 @@ function ltrim(str) {
 
 },{"./forge":16,"./util":48}],31:[function(require,module,exports){
 /**
- * Partial implementation of PKCS#1 v2.2: RSA-OEAP
+ * Partial implementation of PKCS#1 v2.2: RSA-OAEP
  *
  * Modified but based on the following MIT and BSD licensed code:
  *
