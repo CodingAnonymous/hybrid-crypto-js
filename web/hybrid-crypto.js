@@ -2,8 +2,8 @@
 "use strict";
 
 module.exports = {
-  AES_STANDARD: 'AES-CBC',
-  DEFAULT_MESSAGE_DIGEST: 'sha256'
+  AES_STANDARD: 'AES-CTR',
+  DEFAULT_MESSAGE_DIGEST: 'sha512'
 };
 },{}],2:[function(require,module,exports){
 "use strict";
