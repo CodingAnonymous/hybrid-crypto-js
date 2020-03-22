@@ -140,7 +140,14 @@ function () {
       checkSum.update(message, 'utf8'); // Accept both PEMs and forge private key objects
 
       if (typeof privateKey === 'string') privateKey = pki.privateKeyFromPem(privateKey);
-      var signature = privateKey.sign(checkSum);
+      
+      var pss = forge.pss.create({
+        md: this._getMessageDigest(this.options.md),
+        mgf: forge.mgf.mgf1.create(this._getMessageDigest(this.options.md)),
+        saltLength: 20
+      });
+          
+      var signature = privateKey.sign(checkSum, pss);
       var signature64 = forge.util.encode64(signature); // Return signature in JSON format
 
       return JSON.stringify({
@@ -175,10 +182,16 @@ function () {
       checkSum.update(decrypted, 'utf8'); // Base64 decode signature
 
       signature = forge.util.decode64(signature); // Accept both PEMs and forge private key objects
+      
+      var pss = forge.pss.create({
+        md: this._getMessageDigest(md),
+        mgf: forge.mgf.mgf1.create(this._getMessageDigest(md)),
+        saltLength: 20
+      });
 
       if (typeof publicKey === 'string') publicKey = pki.publicKeyFromPem(publicKey); // Verify signature
 
-      return publicKey.verify(checkSum.digest().getBytes(), signature);
+      return publicKey.verify(checkSum.digest().getBytes(), signature, pss);
     }
     /**
      * Encrypts a message using public RSA key and optional signature
