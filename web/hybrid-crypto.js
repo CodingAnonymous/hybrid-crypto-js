@@ -205,6 +205,76 @@ function () {
      */
 
   }, {
+    key: "encrypt_with_password",
+    value: function encrypt(message, password) {
+      var iv = forge.random.getBytesSync(256);
+      var salt = forge.random.getBytesSync(256);
+
+      var numIterations = 131072;
+      var key = forge.pkcs5.pbkdf2(password, salt, numIterations, 32);
+
+      var buffer = forge.util.createBuffer(forge.util.encodeUtf8(message), 'utf8');
+      var cipher = forge.cipher.createCipher(AES_STANDARD, key); // Actual encryption
+
+      cipher.start({
+        iv: iv
+      });
+      cipher.update(buffer);
+      cipher.finish(); // Attach encrypted message int payload
+
+      var privateKey_encrypted = forge.util.encode64(cipher.output.data);
+
+      var payload = {};
+      payload.iv = forge.util.encode64(iv);
+      payload.cipher = forge.util.encode64(cipher.output.data);
+
+      return JSON.stringify(payload);
+    }
+    /**
+     * Decrypts a message using AES256
+     *
+     * @param {String} message to encrypt
+     * @param {String} passwort to encrypt message
+     *
+     * @return {Object} Decrypted message and iv as a JSON object
+     */
+
+  }, {
+    key: "decrypt_with_password",
+    value: function encrypt(encrypted, password) {
+      
+      this._validate(encrypted); // Parse encrypted string to JSON
+
+      var payload = JSON.parse(encrypted);
+
+      var iv = forge.util.decode64(payload.iv);
+      var cipher = forge.util.decode64(payload.cipher); // Use RSA to decrypt AES key
+
+      var buffer = forge.util.createBuffer(cipher);
+      var decipher = forge.cipher.createDecipher(AES_STANDARD, password); // Actual decryption
+
+      decipher.start({
+        iv: iv
+      });
+      decipher.update(buffer);
+      decipher.finish(); // Return utf-8 encoded bytes
+
+      var bytes = decipher.output.getBytes();
+      var decrypted = forge.util.decodeUtf8(bytes);
+
+      return decrypted;
+    }
+    /**
+     * Decrypts a message using private RSA key
+     *
+     * @param {String} privateKey Private key in PEM format
+     * @param {String} encrypted Message to decrypt
+     *
+     * @return {Object} Decrypted message and metadata as a JSON object
+     * @method
+     */
+
+  }, {
     key: "encrypt",
     value: function encrypt(publicKeys, message, signature) {
       var _this = this;
@@ -216,7 +286,7 @@ function () {
         return typeof key === 'string' ? pki.publicKeyFromPem(key) : key;
       }); // Generate random keys
 
-      var iv = forge.random.getBytesSync(32);
+      var iv = forge.random.getBytesSync(256);
       var key = forge.random.getBytesSync(32); // Encrypt random key with all of the public keys
 
       var encryptedKeys = {};
@@ -310,6 +380,21 @@ function () {
       var p = JSON.parse(encrypted);
       if ( // Check required properties
       !(p.hasOwnProperty('v') && p.hasOwnProperty('iv') && p.hasOwnProperty('keys') && p.hasOwnProperty('cipher'))) throw 'Encrypted message is not valid';
+    }
+    /**
+     * Private function to add more entropy
+     *
+     * @param {String|Number} input Something random
+     *
+     * @method
+     */
+
+  }, {
+    key: "_validate_with_password",
+    value: function _validate(encrypted) {
+      var p = JSON.parse(encrypted);
+      if ( // Check required properties
+      !(p.hasOwnProperty('iv') && p.hasOwnProperty('cipher'))) throw 'Encrypted message is not valid';
     }
     /**
      * Private function to add more entropy
@@ -6844,7 +6929,7 @@ function bnpDivRemTo(m,q,r) {
   }
   if(r == null) r = nbi();
   var y = nbi(), ts = this.s, ms = m.s;
-  var nsh = this.DB-nbits(pm.data[pm.t-1]);	// normalize modulus
+  var nsh = this.DB-nbits(pm.data[pm.t-1]); // normalize modulus
   if(nsh > 0) { pm.lShiftTo(nsh,y); pt.lShiftTo(nsh,r); } else { pm.copyTo(y); pt.copyTo(r); }
   var ys = y.t;
   var y0 = y.data[ys-1];
@@ -6858,12 +6943,12 @@ function bnpDivRemTo(m,q,r) {
     r.subTo(t,r);
   }
   BigInteger.ONE.dlShiftTo(ys,t);
-  t.subTo(y,y);	// "negative" y so we can replace sub with am later
+  t.subTo(y,y); // "negative" y so we can replace sub with am later
   while(y.t < ys) y.data[y.t++] = 0;
   while(--j >= 0) {
     // Estimate quotient digit
     var qd = (r.data[--i]==y0)?this.DM:Math.floor(r.data[i]*d1+(r.data[i-1]+e)*d2);
-    if((r.data[i]+=y.am(0,qd,r,j,0,ys)) < qd) {	// Try it out
+    if((r.data[i]+=y.am(0,qd,r,j,0,ys)) < qd) { // Try it out
       y.dlShiftTo(j,t);
       r.subTo(t,r);
       while(r.data[i] < --qd) r.subTo(t,r);
@@ -6875,7 +6960,7 @@ function bnpDivRemTo(m,q,r) {
   }
   r.t = ys;
   r.clamp();
-  if(nsh > 0) r.rShiftTo(nsh,r);	// Denormalize remainder
+  if(nsh > 0) r.rShiftTo(nsh,r);  // Denormalize remainder
   if(ts < 0) BigInteger.ZERO.subTo(r,r);
 }
 
@@ -6918,13 +7003,13 @@ function bnpInvDigit() {
   if(this.t < 1) return 0;
   var x = this.data[0];
   if((x&1) == 0) return 0;
-  var y = x&3;		// y == 1/x mod 2^2
-  y = (y*(2-(x&0xf)*y))&0xf;	// y == 1/x mod 2^4
-  y = (y*(2-(x&0xff)*y))&0xff;	// y == 1/x mod 2^8
-  y = (y*(2-(((x&0xffff)*y)&0xffff)))&0xffff;	// y == 1/x mod 2^16
+  var y = x&3;    // y == 1/x mod 2^2
+  y = (y*(2-(x&0xf)*y))&0xf;  // y == 1/x mod 2^4
+  y = (y*(2-(x&0xff)*y))&0xff;  // y == 1/x mod 2^8
+  y = (y*(2-(((x&0xffff)*y)&0xffff)))&0xffff; // y == 1/x mod 2^16
   // last step - calculate inverse mod DV directly;
   // assumes 16 < DB <= 32 and assumes ability to handle 48-bit ints
-  y = (y*(2-x*y%this.DV))%this.DV;		// y == 1/x mod 2^dbits
+  y = (y*(2-x*y%this.DV))%this.DV;    // y == 1/x mod 2^dbits
   // we really want the negative inverse, and -DV < y < DV
   return (y>0)?this.DV-y:-y;
 }
@@ -6958,7 +7043,7 @@ function montRevert(x) {
 
 // x = x/R mod m (HAC 14.32)
 function montReduce(x) {
-  while(x.t <= this.mt2)	// pad x so am has enough room later
+  while(x.t <= this.mt2)  // pad x so am has enough room later
     x.data[x.t++] = 0;
   for(var i = 0; i < this.m.t; ++i) {
     // faster way of calculating u0 = x.data[i]*mp mod DV
