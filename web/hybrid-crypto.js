@@ -205,30 +205,19 @@ function () {
      */
 
   }, {
-    key: "encrypt_with_password",
-    value: function encrypt(message, password) {
-      var iv = forge.random.getBytesSync(256);
-      var salt = forge.random.getBytesSync(256);
+    key: "encrypt_private_key",
+    value: function encrypt(privateKey, password) {
 
-      var numIterations = 131072;
-      var key = forge.pkcs5.pbkdf2(password, salt, numIterations, 32);
-
-      var buffer = forge.util.createBuffer(forge.util.encodeUtf8(message), 'utf8');
-      var cipher = forge.cipher.createCipher(AES_STANDARD, key); // Actual encryption
-
-      cipher.start({
-        iv: iv
+      var rval = forge.pki.wrapRsaPrivateKey(forge.pki.privateKeyToAsn1(privateKey));
+      rval = forge.pki.encryptPrivateKeyInfo(rval, password, {
+        saltSize: 20,
+        count: 131072,
+        algorithm: 'aes256',
+        prfAlgorithm: 'sha512',
       });
-      cipher.update(buffer);
-      cipher.finish(); // Attach encrypted message int payload
+      var pem = forge.pki.encryptedPrivateKeyToPem(rval);
 
-      var privateKey_encrypted = forge.util.encode64(cipher.output.data);
-
-      var payload = {};
-      payload.iv = forge.util.encode64(iv);
-      payload.cipher = forge.util.encode64(cipher.output.data);
-
-      return JSON.stringify(payload);
+      return pem;
     }
     /**
      * Decrypts a message using AES256
@@ -240,29 +229,12 @@ function () {
      */
 
   }, {
-    key: "decrypt_with_password",
-    value: function encrypt(encrypted, password) {
+    key: "decrypt_private_key",
+    value: function encrypt(privateKeyEncrypted, password) {
       
-      this._validate(encrypted); // Parse encrypted string to JSON
+      var privateKey = forge.pki.decryptRsaPrivateKey(privateKeyEncrypted, password);
 
-      var payload = JSON.parse(encrypted);
-
-      var iv = forge.util.decode64(payload.iv);
-      var cipher = forge.util.decode64(payload.cipher); // Use RSA to decrypt AES key
-
-      var buffer = forge.util.createBuffer(cipher);
-      var decipher = forge.cipher.createDecipher(AES_STANDARD, password); // Actual decryption
-
-      decipher.start({
-        iv: iv
-      });
-      decipher.update(buffer);
-      decipher.finish(); // Return utf-8 encoded bytes
-
-      var bytes = decipher.output.getBytes();
-      var decrypted = forge.util.decodeUtf8(bytes);
-
-      return decrypted;
+      return privateKey;
     }
     /**
      * Decrypts a message using private RSA key
@@ -286,7 +258,7 @@ function () {
         return typeof key === 'string' ? pki.publicKeyFromPem(key) : key;
       }); // Generate random keys
 
-      var iv = forge.random.getBytesSync(256);
+      var iv = forge.random.getBytesSync(16);
       var key = forge.random.getBytesSync(32); // Encrypt random key with all of the public keys
 
       var encryptedKeys = {};
@@ -390,21 +362,6 @@ function () {
      */
 
   }, {
-    key: "_validate_with_password",
-    value: function _validate(encrypted) {
-      var p = JSON.parse(encrypted);
-      if ( // Check required properties
-      !(p.hasOwnProperty('iv') && p.hasOwnProperty('cipher'))) throw 'Encrypted message is not valid';
-    }
-    /**
-     * Private function to add more entropy
-     *
-     * @param {String|Number} input Something random
-     *
-     * @method
-     */
-
-  }, {
     key: "_entropy",
     value: function _entropy(input) {
       var inputString = String(input);
@@ -480,8 +437,13 @@ function () {
         workers: -1
       }, function (err, keyPair) {
         // Cast key pair to PEM format
-        keyPair.publicKey = pki.publicKeyToPem(keyPair.publicKey);
-        keyPair.privateKey = pki.privateKeyToPem(keyPair.privateKey);
+        //keyPair.publicKey = pki.publicKeyToPem(keyPair.publicKey);
+        //keyPair.privateKey = pki.privateKeyToPem(keyPair.privateKey);
+
+        // Default format (NOT PEM)
+        keyPair.publicKey = keyPair.publicKey;
+        keyPair.privateKey = keyPair.privateKey;
+
         callback(keyPair);
       });
     }
